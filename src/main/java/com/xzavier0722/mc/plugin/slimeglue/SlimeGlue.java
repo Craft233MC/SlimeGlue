@@ -1,5 +1,6 @@
 package com.xzavier0722.mc.plugin.slimeglue;
 
+import com.tcoded.folialib.FoliaLib;
 import com.xzavier0722.mc.plugin.slimefuncomplib.ICompatibleSlimefun;
 import com.xzavier0722.mc.plugin.slimeglue.listener.BlockListener;
 import com.xzavier0722.mc.plugin.slimeglue.listener.PluginListener;
@@ -24,10 +25,12 @@ public final class SlimeGlue extends JavaPlugin implements SlimefunAddon {
     private static SlimeGlue instance;
     private static GlueLogger logger;
     private static CompatibilityModuleManager moduleManager;
+    private static FoliaLib foliaLib;
 
     @Override
     public void onEnable() {
         instance = this;
+        foliaLib = new FoliaLib(this);
         logger = new GlueLogger(getLogger());
         logger.i("====SlimeGlue Start====");
         moduleManager = new CompatibilityModuleManager();
@@ -49,17 +52,17 @@ public final class SlimeGlue extends JavaPlugin implements SlimefunAddon {
         if (!registerSfProtectionModule()) {
             logger.w("- Failed to register protection module, schedule the retry task after the server started.");
             AtomicInteger counter = new AtomicInteger();
-            getServer().getScheduler().runTaskTimer(this, task -> {
+            foliaLib.getScheduler().runTimer(wrappedTask -> {
                 if (registerSfProtectionModule()) {
                     logger.i("Protection module is registered!");
-                    task.cancel();
+                    wrappedTask.cancel();
                     return;
                 }
                 if (counter.getAndIncrement() >= 10) {
                     logger.e("Failed to register the slimefun protection module, some function may not work properly");
-                    task.cancel();
+                    wrappedTask.cancel();
                 }
-            }, 1, 20);
+            },1 ,20);
         }
 
         logger.i("- SlimeGlue Started!");
