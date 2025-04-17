@@ -1,7 +1,7 @@
 # This workflow will build a Java project with Maven, and cache/restore any dependencies to improve the workflow execution time
 # For more information see: https://help.github.com/actions/language-and-framework-guides/building-and-testing-java-with-maven
 
-name: Auto build & release
+name: Auto build
 
 on:
   workflow_dispatch:
@@ -20,33 +20,41 @@ jobs:
 
     steps:
     - uses: actions/checkout@v3
-    - name: Set up JDK 8
+    - name: Set up JDK 17
       uses: actions/setup-java@v3
       with:
         java-version: '17'
         distribution: 'zulu'
         cache: maven
-    - name: Build with Maven
-      run: mvn -B package --file pom.xml
-    - run: mkdir staging && cp target/*.jar staging
     - uses: actions/cache@v3
       if: github.event_name != 'pull_request'
       with:
         path: ~/.m2
         key: ${{ runner.os }}-m2-${{ hashFiles('**/pom.xml') }}
         restore-keys: ${{ runner.os }}-m2
-    - uses: actions/upload-artifact@v4
-      if: github.event_name != 'pull_request'
+    - name: Download Slimefun from artifact
+      uses: dawidd6/action-download-artifact@v9
       with:
-        name: SlimeGlue.jar
-        path: staging
-    - name: Automatic Releases
-      uses: marvinpinto/action-automatic-releases@v1.2.1
-      if: github.event_name != 'pull_request'
+        github_token: ${{secrets.GITHUB_TOKEN}}
+        workflow: dev-ci.yml
+        workflow_conclusion: success
+        repo: Craft233MC/Slimefun4
+        use_unzip: true
+    - name: Place local depends
+      run: |
+        export SF=$(ls | grep Slimefun)
+        mvn install:install-file -Dfile=${SF}/${SF} -DgroupId=top.craft233 -DartifactId=Slimefun4 -Dversion=b39097e015 -Dpackaging=jar
+    - name: Build with Maven
+      run: mvn -B package --file pom.xml
+    - run: mkdir staging && cp target/*.jar staging
+    - name: select jar
+      run: |
+        cd target
+        rm -rf original*
+        echo "FILE=$(ls | grep jar)" >> $GITHUB_ENV
+          
+    - name: Upload Artifact
+      uses: actions/upload-artifact@v4
       with:
-        repo_token: "${{ secrets.GITHUB_TOKEN }}"
-        automatic_release_tag: "exp"
-        prerelease: true
-        title: "SlimeGlue exp version"
-        files: |
-          target/SlimeGlue-*.jar
+        name: ${{ env.FILE }}
+        path: target/${{ env.FILE }}
